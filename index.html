@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ethereum Native Privacy Landscape (Continuously Updated)</title>
+  <meta
+    name="description"
+    content="Question-driven Ishikawa roadmap for native privacy on Ethereum."
+  />
+  <meta property="og:title" content="Ethereum Native Privacy Landscape (Continuously Updated)" />
+  <meta
+    property="og:description"
+    content="Click each bone to explore Privacy, Compliance, Post-quantum, and Backward compatibility questions."
+  />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="styles.css?v=title-landscape" />
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-mark">
+        <span class="hero-kicker">Coordination sketch</span>
+        <h1>Ethereum Native Privacy Landscape <span class="hero-ongoing">(Continuously Updated)</span></h1>
+      </div>
+      <div class="hero-meta">
+        <span class="tag">Not an official roadmap</span>
+        <span class="tag muted">Question-driven · draft</span>
+      </div>
+    </header>
+
+    <section class="stage" aria-label="Interactive fishbone diagram">
+      <div class="diagram-shell">
+        <div class="lane-legend">
+          <span class="legend-item privacy"><i></i> Privacy</span>
+          <span class="legend-item compliance"><i></i> Compliance</span>
+          <span class="legend-item pq"><i></i> Post-quantum</span>
+          <span class="legend-item compat"><i></i> Backward compatibility</span>
+        </div>
+        <div class="diagram-scroll" id="diagram-host"></div>
+      </div>
+
+      <aside class="panel" id="detail-panel" aria-live="polite">
+        <div class="panel-top">
+          <span class="panel-lane" id="panel-lane">P1</span>
+          <h2 id="panel-question">Select a bone</h2>
+          <button type="button" class="panel-close" id="panel-close" hidden>Clear</button>
+        </div>
+        <p class="panel-detail" id="panel-detail">
+          Click a rib on the fishbone to inspect that design question.
+        </p>
+        <div class="panel-related" id="panel-related" hidden>
+          <h3 class="panel-related-title">Related discussions</h3>
+          <div class="panel-related-list" id="panel-related-list"></div>
+        </div>
+        <p class="panel-refs" id="panel-refs" hidden></p>
+      </aside>
+    </section>
+  </div>
+  <script src="app.js?v=lane-colors"></script>
+</body>
+</html>
