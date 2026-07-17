@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wallet Local Merkle Tree</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0f12;
+      --panel: #14191e;
+      --soft: #1a2128;
+      --ink: #e8ecef;
+      --muted: #8b969e;
+      --faint: #5a666f;
+      --line: #2a333b;
+      --indexer: #5b8faf;
+      --indexer-soft: rgba(91, 143, 175, 0.16);
+      --wallet: #5a9e8f;
+      --wallet-soft: rgba(90, 158, 143, 0.16);
+      --mine: #d4a017;
+      --mine-soft: rgba(212, 160, 23, 0.2);
+      --sib: #9b7bb8;
+      --sib-soft: rgba(155, 123, 184, 0.2);
+      --empty: #6a737a;
+      --empty-soft: rgba(106, 115, 122, 0.14);
+      --flash: #e8c56a;
+      --cmx: #7a9eb8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "DM Sans", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      line-height: 1.45;
+    }
+
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+
+    header { margin-bottom: 18px; }
+
+    .eyebrow {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--indexer);
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: clamp(22px, 3.2vw, 32px);
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+      max-width: 36ch;
+    }
+
+    header > p {
+      color: var(--muted);
+      font-size: 14px;
+      max-width: 72ch;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 16px 0 12px;
+      padding: 10px 12px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+
+    .meta {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .meta strong { color: var(--ink); font-weight: 500; }
+
+    .phase {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 7px;
+      border-radius: 2px;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+    }
+    .phase.push { background: var(--indexer-soft); color: var(--indexer); }
+    .phase.scan { background: var(--wallet-soft); color: var(--wallet); }
+    .phase.init { background: var(--mine-soft); color: var(--mine); }
+    .phase.update { background: var(--sib-soft); color: var(--sib); }
+
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid var(--line);
+      background: var(--soft);
+      color: var(--ink);
+      padding: 7px 12px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    button:hover { background: #222a32; }
+    button.primary {
+      background: var(--indexer);
+      border-color: var(--indexer);
+      color: #0c0f12;
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .progress {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .dot {
+      flex: 1;
+      height: 3px;
+      background: var(--line);
+      border-radius: 2px;
+    }
+    .dot.on { background: var(--indexer); }
+    .dot.done { background: var(--faint); }
+
+    .board {
+      display: grid;
+      grid-template-columns: 220px 1fr 300px;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    @media (max-width: 960px) {
+      .board { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 420px;
+    }
+
+    .card-h {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+      font-family: "IBM Plex Mono", monospace;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-h .role { color: var(--ink); font-weight: 500; text-transform: none; letter-spacing: 0; font-family: "DM Sans", sans-serif; font-size: 14px; }
+
+    .card-b { padding: 12px; flex: 1; }
+
+    /* Indexer column */
+    .block {
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: var(--soft);
+      opacity: 0.35;
+      transition: opacity 0.25s, border-color 0.25s;
+    }
+    .block.active {
+      opacity: 1;
+      border-color: var(--indexer);
+      background: var(--indexer-soft);
+    }
+    .block.done {
+      opacity: 0.7;
+      border-color: var(--faint);
+    }
+    .block .bh {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      color: var(--indexer);
+      margin-bottom: 6px;
+    }
+    .cmx-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .cmx {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      padding: 3px 6px;
+      border-radius: 2px;
+      border: 1px solid var(--line);
+      color: var(--cmx);
+      background: var(--bg);
+    }
+    .cmx.mine {
+      border-color: var(--mine);
+      color: var(--mine);
+      background: var(--mine-soft);
+    }
+    .cmx.new {
+      border-color: var(--flash);
+      color: var(--flash);
+      animation: pulse 0.8s ease-in-out 2;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .pipe {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      color: var(--faint);
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+    .pipe.on { color: var(--indexer); }
+
+    /* Center: tree */
+    .tree-wrap {
+      position: relative;
+      height: 340px;
+    }
+    svg.tree {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .stream-bar {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border: 1px dashed var(--line);
+      border-radius: 3px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      color: var(--muted);
+      min-height: 40px;
+    }
+    .stream-bar.on {
+      border-color: var(--indexer);
+      color: var(--indexer);
+      background: var(--indexer-soft);
+    }
+
+    /* Wallet column */
+    .witness-row {
+      display: grid;
+      grid-template-columns: 48px 1fr auto;
+      gap: 6px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+    }
+    .witness-row:last-child { border-bottom: 0; }
+    .witness-row .lvl { font-family: "IBM Plex Mono", monospace; color: var(--sib); font-size: 11px; }
+    .witness-row .hash { font-family: "IBM Plex Mono", monospace; color: var(--ink); }
+    .witness-row .hash.empty { color: var(--empty); }
+    .witness-row .hash.hot { color: var(--flash); animation: pulse 0.7s ease-in-out 2; }
+    .witness-row .hash.born { color: var(--mine); animation: pulse 0.7s ease-in-out 2; }
+    .witness-row .tag { font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--faint); }
+    .witness-row .tag.hot { color: var(--flash); }
+    .witness-row .tag.born { color: var(--mine); }
+
+    .ing {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 10px;
+    }
+    .ing strong { color: var(--ink); font-weight: 500; }
+
+    .caption {
+      margin-top: 12px;
+      padding: 14px 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      min-height: 88px;
+    }
+    .caption h2 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .caption p {
+      color: var(--muted);
+      font-size: 13px;
+      max-width: 90ch;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--faint);
+      font-family: "IBM Plex Mono", monospace;
+    }
+    .legend span::before {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 5px;
+      border-radius: 1px;
+      border: 1px solid;
+      vertical-align: middle;
+    }
+    .legend .l-idx::before { background: var(--indexer-soft); border-color: var(--indexer); }
+    .legend .l-wal::before { background: var(--wallet-soft); border-color: var(--wallet); }
+    .legend .l-mine::before { background: var(--mine-soft); border-color: var(--mine); }
+    .legend .l-empty::before { background: var(--empty-soft); border-color: var(--empty); }
+    .legend .l-front::before { background: transparent; border-color: var(--wallet); border-style: dashed; }
+
+    .fnew { animation: pulse 0.8s ease-in-out 2; }
+
+    footer.note {
+      margin-top: 14px;
+      font-size: 11px;
+      color: var(--faint);
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    @keyframes flow { to { stroke-dashoffset: -18; } }
+    .flow { stroke-dasharray: 5 5; animation: flow 0.65s linear infinite; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="eyebrow">Local Merkle Tree · Wallet-only path</div>
+      <h1>Wallet maintains the Merkle tree alone</h1>
+      <p>
+        Indexer pushes cmx batches per block. Wallet applies them locally: build the tree, init path, update siblings. No path queries.
+      </p>
+    </header>
+
+    <div class="toolbar">
+      <div class="meta">
+        step <strong id="step-num">0</strong>/<span id="step-total">0</span>
+        · height <strong id="height">—</strong>
+        · size <strong id="fsize">0</strong>
+        <span class="phase push" id="phase">PUSH</span>
+      </div>
+      <div class="controls">
+        <button type="button" id="btn-prev">Prev</button>
+        <button type="button" class="primary" id="btn-play">Play</button>
+        <button type="button" id="btn-next">Next</button>
+        <button type="button" id="btn-reset">Reset</button>
+      </div>
+    </div>
+    <div class="progress" id="progress"></div>
+
+    <div class="board">
+      <div class="card">
+        <div class="card-h">
+          <span class="role">Indexer</span>
+          <span>cmx batches</span>
+        </div>
+        <div class="card-b" id="indexer-col"></div>
+        <div class="pipe" id="pipe">CompactBlock →</div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <span class="role">Wallet Merkle Tree</span>
+          <span>local</span>
+        </div>
+        <div class="card-b">
+          <div class="tree-wrap">
+            <svg class="tree" viewBox="0 0 560 340" id="tree"></svg>
+          </div>
+          <div class="stream-bar" id="stream-bar">waiting…</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <span class="role">Witness</span>
+          <span>local path</span>
+        </div>
+        <div class="card-b">
+          <div id="witness-panel"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="caption">
+      <h2 id="cap-title"></h2>
+      <p id="cap-body"></p>
+      <div class="legend">
+        <span class="l-idx">cmx batch</span>
+        <span class="l-wal">local tree</span>
+        <span class="l-mine">my note</span>
+        <span class="l-empty">empty hash</span>
+        <span class="l-front">F = frontier (rightmost full subtree roots)</span>
+      </div>
+    </div>
+
+    <footer class="note">
+      cmx = commitment · wallet alone owns path init + updates
+    </footer>
+  </div>
+
+  <script>
+    const DEPTH = 3;
+    const CAPACITY = 8;
+    const MY = 1;
+    const EMPTY = ["E₀", "E₁", "E₂", "E₃"];
+
+    function short(s) {
+      if (!s) return "—";
+      if (s.length <= 12) return s;
+      return s.slice(0, 5) + "…" + s.slice(-4);
+    }
+    function isEmpty(v) {
+      return typeof v === "string" && /^E[₀₁₂₃₄]$/.test(v);
+    }
+    function combine(L, R, h) {
+      if (L === EMPTY[h] && R === EMPTY[h]) return EMPTY[h + 1];
+      return "H(" + short(L) + "|" + short(R) + ")";
+    }
+    function leaves(size) {
+      const a = [];
+      for (let i = 0; i < CAPACITY; i++) a.push(i < size ? "c" + i : EMPTY[0]);
+      return a;
+    }
+    function levels(ls) {
+      const out = [ls.slice()];
+      let cur = ls, h = 0;
+      while (cur.length > 1) {
+        const n = [];
+        for (let i = 0; i < cur.length; i += 2) n.push(combine(cur[i], cur[i + 1], h));
+        out.push(n);
+        cur = n;
+        h++;
+      }
+      return out;
+    }
+    function pathOf(lv) {
+      const p = [];
+      let idx = MY;
+      for (let d = 0; d < DEPTH; d++) {
+        const sib = lv[d][idx ^ 1];
+        p.push({ raw: sib, label: short(sib), empty: isEmpty(sib) });
+        idx >>= 1;
+      }
+      return p;
+    }
+
+    /**
+     * Frontier of an incremental tree of `size` leaves: roots of the
+     * rightmost complete subtrees (binary decomposition of size).
+     * These are the only hashes the wallet must keep to append the
+     * next cmx and recompute the root.
+     */
+    function frontierNodes(size) {
+      const nodes = [];
+      let consumed = 0;
+      for (let h = DEPTH; h >= 0; h--) {
+        const width = 1 << h;
+        if (size - consumed >= width) {
+          nodes.push({ h, idx: consumed / width });
+          consumed += width;
+        }
+      }
+      return nodes;
+    }
+
+    /**
+     * Chain of blocks the indexer will push.
+     * Each block = batch of cmx (commitments) in order.
+     */
+    const BLOCKS = [
+      { height: 100, cmx: ["c0"] },
+      { height: 101, cmx: ["c1"], mine: ["c1"] },
+      { height: 102, cmx: ["c2", "c3"] },
+      { height: 103, cmx: ["c4", "c5"] },
+    ];
+
+    function sizeAfterBlock(bi) {
+      let n = 0;
+      for (let i = 0; i <= bi; i++) n += BLOCKS[i].cmx.length;
+      return n;
+    }
+
+    const STEPS = [
+      {
+        phase: "push",
+        block: 0,
+        applied: -1,
+        title: "Indexer packs cmx for block 100",
+        body: "Batch only. No Merkle paths computed or served.",
+        stream: "CompactBlock #100 · cmx=[c0]",
+      },
+      {
+        phase: "scan",
+        block: 0,
+        applied: 0,
+        title: "Wallet stores c0 in local frontier",
+        body: "Apply c0 now — keep it locally. Later notes (other heights) will need these earlier cmx as siblings. Decrypt miss.",
+        stream: "apply c0 · store in local tree",
+      },
+      {
+        phase: "push",
+        block: 1,
+        applied: 0,
+        title: "Indexer packs cmx for block 101",
+        body: "New height, same global tree. c1 is just the next append — not a separate tree per block.",
+        stream: "CompactBlock #101 · cmx=[c1]",
+      },
+      {
+        phase: "init",
+        block: 1,
+        applied: 1,
+        title: "Wallet inits path — sibling c0 already local",
+        body: "Decrypt hit at position=1. sib L0 = c0 comes from the frontier saved at height 100, not from a path query. Wallet already had it.",
+        stream: "apply c1 · path uses stored c0 as sib L0",
+      },
+      {
+        phase: "push",
+        block: 2,
+        applied: 1,
+        title: "Indexer pushes batch [c2, c3]",
+        body: "One block, multiple cmx. Still no path API.",
+        stream: "CompactBlock #102 · cmx=[c2,c3]",
+      },
+      {
+        phase: "update",
+        block: 2,
+        applied: 2,
+        title: "Wallet updates sibling hashes",
+        body: "After init, witness already holds sibling hashes. New cmx only rewrite affected siblings (e.g. E₁ → H(c2|c3)).",
+        stream: "apply c2,c3 · update path",
+      },
+      {
+        phase: "push",
+        block: 3,
+        applied: 2,
+        title: "Indexer pushes batch [c4, c5]",
+        body: "Same pattern: block → cmx batch → wallet.",
+        stream: "CompactBlock #103 · cmx=[c4,c5]",
+      },
+      {
+        phase: "update",
+        block: 3,
+        applied: 3,
+        title: "Wallet keeps the tree current",
+        body: "Persist: frontier (or enough tree state) + each owned note’s witness. Indexer only streams cmx.",
+        stream: "apply c4,c5 · path current",
+      },
+    ];
+
+    let step = 0;
+    let playing = false;
+    let timer = null;
+    let prevPath = null;
+    let prevRoot = null;
+    let lastTreeSize = -1;
+
+    const treeSvg = document.getElementById("tree");
+
+    function el(name, attrs = {}, kids = []) {
+      const n = document.createElementNS("http://www.w3.org/2000/svg", name);
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v == null || v === false) continue;
+        n.setAttribute(k, String(v));
+      }
+      for (const c of kids) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+      return n;
+    }
+
+    function pos() {
+      const top = 36, gapY = 72, w = 560, pad = 36;
+      const out = [];
+      for (let lr = 0; lr <= DEPTH; lr++) {
+        const count = 1 << lr;
+        const y = top + lr * gapY;
+        const row = [];
+        for (let i = 0; i < count; i++) {
+          row.push({ x: pad + ((w - 2 * pad) * (i + 0.5)) / count, y });
+        }
+        out.push(row);
+      }
+      return out;
+    }
+
+    function drawTree(size, hasNote, changed, prevSize) {
+      while (treeSvg.firstChild) treeSvg.removeChild(treeSvg.firstChild);
+      const g = el("g");
+      treeSvg.appendChild(g);
+      const lv = levels(leaves(size));
+      const P = pos();
+
+      for (let lr = 0; lr < DEPTH; lr++) {
+        for (let i = 0; i < P[lr].length; i++) {
+          const p = P[lr][i];
+          const parentBU = DEPTH - lr;
+          const childBU = DEPTH - lr - 1;
+          const myP = MY >> parentBU;
+          const myC = MY >> childBU;
+          const on = hasNote && i === myP;
+          for (let k = 0; k < 2; k++) {
+            const c = P[lr + 1][i * 2 + k];
+            const ci = i * 2 + k;
+            const mine = on && ci === myC;
+            const sib = on && ci === (myC ^ 1);
+            g.appendChild(el("line", {
+              x1: p.x, y1: p.y, x2: c.x, y2: c.y,
+              stroke: mine ? "var(--mine)" : sib ? "var(--sib)" : "var(--line)",
+              "stroke-width": mine || sib ? 2.2 : 1.1,
+            }));
+          }
+        }
+      }
+
+      for (let lr = 0; lr <= DEPTH; lr++) {
+        const bu = DEPTH - lr;
+        for (let i = 0; i < P[lr].length; i++) {
+          const { x, y } = P[lr][i];
+          const val = lv[bu][i];
+          const empty = isEmpty(val);
+          const isLeaf = lr === DEPTH;
+          const isRoot = lr === 0;
+          const isMine = hasNote && isLeaf && i === MY;
+          const myIdx = MY >> bu;
+          const isSib = hasNote && !isRoot && i === (myIdx ^ 1);
+          const isAnc = hasNote && !isLeaf && !isRoot && i === myIdx;
+
+          let fill = "var(--soft)", stroke = "var(--line)", sw = 1.2;
+          if (isMine) { fill = "var(--mine-soft)"; stroke = "var(--mine)"; sw = 2; }
+          else if (isSib) { fill = empty ? "var(--empty-soft)" : "var(--sib-soft)"; stroke = empty ? "var(--empty)" : "var(--sib)"; sw = 2; }
+          else if (isRoot) { fill = "var(--indexer-soft)"; stroke = "var(--indexer)"; sw = 2; }
+          else if (isAnc) { fill = "var(--mine-soft)"; stroke = "var(--mine)"; sw = 1.6; }
+          else if (empty) { fill = "var(--empty-soft)"; stroke = "var(--empty)"; }
+          else { stroke = "var(--indexer)"; }
+
+          const flash = hasNote && ((isRoot && changed.root) || (isSib && changed.sib[bu]));
+          const r = isRoot ? 15 : 13;
+          g.appendChild(el("circle", { cx: x, cy: y, r, fill, stroke, "stroke-width": sw }));
+          if (flash) {
+            g.appendChild(el("circle", {
+              cx: x, cy: y, r: r + 5, fill: "none",
+              stroke: changed.born ? "var(--mine)" : "var(--flash)", "stroke-width": 2,
+            }));
+          }
+
+          let label = isLeaf ? (empty ? "E₀" : String(i)) : isRoot ? (empty ? "E₃" : "R") : empty ? val : "n";
+          g.appendChild(el("text", {
+            x, y: y + 4, "text-anchor": "middle",
+            fill: isMine ? "var(--mine)" : isSib ? (empty ? "var(--empty)" : "var(--sib)") : empty ? "var(--empty)" : "var(--ink)",
+            "font-size": 10, "font-family": "IBM Plex Mono, monospace", "font-weight": 500,
+          }, [label]));
+
+          if (isMine) {
+            g.appendChild(el("text", {
+              x, y: y + 26, "text-anchor": "middle", fill: "var(--mine)",
+              "font-size": 10, "font-family": "DM Sans, sans-serif", "font-weight": 600,
+            }, ["mine"]));
+          }
+        }
+      }
+
+      // Frontier: dashed ring + F on rightmost complete subtree roots.
+      const frontier = frontierNodes(size);
+      const prevKeys = new Set(
+        (prevSize >= 0 ? frontierNodes(prevSize) : frontier).map((f) => f.h + ":" + f.idx)
+      );
+      for (const f of frontier) {
+        const { x, y } = P[DEPTH - f.h][f.idx];
+        const r = (DEPTH - f.h) === 0 ? 15 : 13;
+        const isNew = !prevKeys.has(f.h + ":" + f.idx);
+        g.appendChild(el("circle", {
+          cx: x, cy: y, r: r + 5,
+          fill: "none",
+          stroke: "var(--wallet)",
+          "stroke-width": 1.6,
+          "stroke-dasharray": "4 3",
+          class: isNew ? "fnew" : null,
+        }));
+        g.appendChild(el("text", {
+          x: x + r + 8, y: y - r + 2,
+          fill: "var(--wallet)",
+          "font-size": 10,
+          "font-family": "IBM Plex Mono, monospace",
+          "font-weight": 500,
+          class: isNew ? "fnew" : null,
+        }, ["F"]));
+      }
+
+      g.appendChild(el("text", {
+        x: 12, y: 16, fill: "var(--faint)",
+        "font-size": 10, "font-family": "IBM Plex Mono, monospace",
+      }, [
+        "size " + size +
+        " · frontier: " +
+        (frontier.length
+          ? frontier.map((f) => (f.h === 0 ? "leaf " + f.idx : "h" + f.h + "#" + f.idx)).join(", ")
+          : "—"),
+      ]));
+    }
+
+    function renderIndexer(s) {
+      const col = document.getElementById("indexer-col");
+      col.innerHTML = "";
+      BLOCKS.forEach((b, i) => {
+        const div = document.createElement("div");
+        let cls = "block";
+        if (i === s.block && (s.phase === "push" || s.applied < i)) cls += " active";
+        else if (i <= s.applied) cls += " done";
+        else if (i === s.block) cls += " active";
+        div.className = cls;
+
+        const mineSet = new Set(b.mine || []);
+        const isPushing = s.phase === "push" && i === s.block;
+        const isApplying = (s.phase !== "push") && i === s.block;
+
+        div.innerHTML =
+          '<div class="bh">#' + b.height +
+          (isPushing ? " · pack" : isApplying ? " · sent" : i <= s.applied ? " · done" : "") +
+          "</div>" +
+          '<div class="cmx-row">' +
+          b.cmx.map((c) => {
+            let ccls = "cmx";
+            if (mineSet.has(c) && s.applied >= 1) ccls += " mine";
+            if ((isPushing || isApplying) && s.block === i) ccls += " new";
+            return '<span class="' + ccls + '">' + c + "</span>";
+          }).join("") +
+          "</div>";
+        col.appendChild(div);
+      });
+
+      const pipe = document.getElementById("pipe");
+      pipe.className = "pipe on";
+      pipe.textContent = s.phase === "push" ? "pushing cmx →" : "→ wallet applied";
+    }
+
+    function renderWitness(size, hasNote, changed, phase) {
+      const panel = document.getElementById("witness-panel");
+      if (!hasNote) {
+        panel.innerHTML =
+          '<div class="ing"><strong>No witness yet</strong></div>' +
+          '<div class="ing">frontier = ' + size +
+          '<br/>empty hashes ready<br/>waiting for decrypt hit</div>';
+        return;
+      }
+
+      const lv = levels(leaves(size));
+      const path = pathOf(lv);
+      const root = lv[DEPTH][0];
+
+      let html = phase === "init"
+        ? '<div class="ing" style="color:var(--mine)">init path · wallet</div>'
+        : '<div class="ing">update siblings · wallet</div>';
+
+      path.forEach((p, i) => {
+        const hot = changed.sib[i];
+        const born = changed.born;
+        html +=
+          '<div class="witness-row"><span class="lvl">L' + i + "</span>" +
+          '<span class="hash' +
+          (p.empty ? " empty" : "") +
+          (born ? " born" : hot ? " hot" : "") +
+          '">' + p.label + "</span>" +
+          '<span class="tag' + (born ? " born" : hot ? " hot" : "") + '">' +
+          (born ? "INIT" : hot ? "UPD" : p.empty ? "Eₖ" : "ok") +
+          "</span></div>";
+      });
+
+      html +=
+        '<div class="ing" style="margin-top:10px">root <strong>' + short(root) + "</strong>" +
+        (changed.root || born ? " · upd" : "") +
+        "<br/>path 3/3</div>";
+
+      panel.innerHTML = html;
+    }
+
+    function diff(prevP, nextP, prevR, nextR, born) {
+      const sib = {};
+      if (born || !prevP) {
+        for (let i = 0; i < DEPTH; i++) sib[i] = true;
+        return { sib, root: true, born: !!born };
+      }
+      for (let i = 0; i < DEPTH; i++) sib[i] = prevP[i].raw !== nextP[i].raw;
+      return { sib, root: prevR !== nextR, born: false };
+    }
+
+    function render() {
+      const s = STEPS[step];
+      const size = s.applied < 0 ? 0 : sizeAfterBlock(s.applied);
+      const hasNote = s.applied >= 1;
+      const born = s.phase === "init";
+
+      let changed = { sib: {}, root: false, born: false };
+      if (hasNote) {
+        const lv = levels(leaves(size));
+        const path = pathOf(lv);
+        const root = lv[DEPTH][0];
+        changed = diff(prevPath, path, prevRoot, root, born);
+        prevPath = path;
+        prevRoot = root;
+      } else {
+        prevPath = null;
+        prevRoot = null;
+      }
+
+      // When in push phase before apply, tree shows previous frontier
+      const treeSize = s.phase === "push" ? (s.applied < 0 ? 0 : sizeAfterBlock(s.applied)) : size;
+      const treeHasNote = treeSize > MY;
+
+      const quiet = { sib: {}, root: false, born: false };
+      const treeChanged = s.phase === "push" ? quiet : changed;
+      const witChanged = s.phase === "push" ? quiet : changed;
+      const witPhase = s.phase === "push" && treeHasNote ? "update" : s.phase;
+
+      drawTree(treeSize, treeHasNote, treeChanged, lastTreeSize);
+      lastTreeSize = treeSize;
+      renderIndexer(s);
+      renderWitness(treeSize, treeHasNote, witChanged, witPhase);
+
+      document.getElementById("step-num").textContent = String(step);
+      document.getElementById("step-total").textContent = String(STEPS.length - 1);
+      document.getElementById("height").textContent =
+        s.phase === "push" ? String(BLOCKS[s.block].height) : String(BLOCKS[s.applied].height);
+      document.getElementById("fsize").textContent = String(treeSize);
+
+      const ph = document.getElementById("phase");
+      ph.textContent = s.phase.toUpperCase();
+      ph.className = "phase " + s.phase;
+
+      const bar = document.getElementById("stream-bar");
+      bar.textContent = s.stream;
+      bar.className = "stream-bar on";
+
+      document.getElementById("cap-title").textContent = s.title;
+      document.getElementById("cap-body").textContent = s.body;
+
+      document.getElementById("btn-prev").disabled = step === 0;
+      document.getElementById("btn-next").disabled = step === STEPS.length - 1;
+
+      const prog = document.getElementById("progress");
+      prog.innerHTML = "";
+      STEPS.forEach((_, i) => {
+        const d = document.createElement("div");
+        d.className = "dot" + (i === step ? " on" : i < step ? " done" : "");
+        prog.appendChild(d);
+      });
+    }
+
+    function stop() {
+      playing = false;
+      if (timer) clearInterval(timer);
+      timer = null;
+      document.getElementById("btn-play").textContent = "Play";
+    }
+    function play() {
+      playing = true;
+      document.getElementById("btn-play").textContent = "Pause";
+      timer = setInterval(() => {
+        if (step >= STEPS.length - 1) { stop(); return; }
+        step++;
+        render();
+      }, 3000);
+    }
+
+    document.getElementById("btn-play").onclick = () => (playing ? stop() : play());
+    document.getElementById("btn-next").onclick = () => {
+      stop();
+      if (step < STEPS.length - 1) { step++; render(); }
+    };
+    document.getElementById("btn-prev").onclick = () => {
+      stop();
+      if (step > 0) {
+        step--;
+        prevPath = null;
+        prevRoot = null;
+        lastTreeSize = -1;
+        for (let i = 0; i < step; i++) {
+          const prev = STEPS[i];
+          if (prev.applied >= 1 && prev.phase !== "push") {
+            const sz = sizeAfterBlock(prev.applied);
+            const lv = levels(leaves(sz));
+            prevPath = pathOf(lv);
+            prevRoot = lv[DEPTH][0];
+          }
+        }
+        render();
+      }
+    };
+    document.getElementById("btn-reset").onclick = () => {
+      stop();
+      step = 0;
+      prevPath = null;
+      prevRoot = null;
+      lastTreeSize = -1;
+      render();
+    };
+
+    render();
+  </script>
+</body>
+</html>

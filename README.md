@@ -27,8 +27,8 @@ Not an official roadmap.
 |---|---|
 | L1 privacy scope | [Kohaku Roadmap](https://notes.ethereum.org/@niard/KohakuRoadmap) · [Vitalik — simple L1 privacy roadmap](https://ethereum-magicians.org/t/a-maximally-simple-l1-privacy-roadmap/23459) |
 | Primitives (ZK / FHE / MPC / TEE) | [Aztec — Is ZK-MPC-FHE-TEE a real creature?](https://aztec.network/blog/is-zk-mpc-fhe-tee-a-real-creature) |
-| Why ZK | [Zcash Protocol Spec](https://zips.z.cash/protocol/protocol.pdf) |
-| Amount & address privacy (notes) | [PLabs — Privacy101 / Orchard](https://x.com/_PLabs/status/2065052710228152360) |
+| Why ZK | [Zcash Protocol Spec](https://zips.z.cash/protocol/protocol.pdf) · [Local Merkle witness demo](./zcash-local-witness-flow.html) |
+| Amount & address privacy (notes) | [PLabs — Privacy101 / Orchard](https://x.com/_PLabs/status/2065052710228152360) · [Local Merkle witness demo](./zcash-local-witness-flow.html) |
 | Gas sponsorship | [EIP-8141 Frame Transactions](https://eips.ethereum.org/EIPS/eip-8141) |
 | Shared UTXO pool | [EIP-8182 Private ETH and ERC-20 Transfers](https://eips.ethereum.org/EIPS/eip-8182) |
 
